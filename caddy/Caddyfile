@@ -1,0 +1,9 @@
+nia-ai.com.br, www.nia-ai.com.br {
+    reverse_proxy admin_panel:3000
+    
+    # Se usar o modo Proxied (Nuvem Laranja) no Cloudflare, 
+    # o Caddy precisa saber disso para lidar com certificados ou desativar o TLS local.
+    # Se o Cloudflare estiver gerando o SSL Full (Strict), mantenha assim.
+    # Se estiver usando SSL Flexible, descomente a linha abaixo:
+    # tls internal
+}

@@ -1,0 +1,230 @@
+{
+  "name": "Nia SaaS - Motor de Ingestão e Agendamento",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hookcloud-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1001",
+      "name": "Webhook (HookCloud)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.body.entry[0].changes[0].value.messages[0].type }}",
+              "value2": "text"
+            }
+          ]
+        }
+      },
+      "id": "1002",
+      "name": "IF (Somente Mensagens)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT empresa_id FROM instancias_whatsapp WHERE numero_telefone = '{{ $json.body.entry[0].changes[0].value.metadata.display_phone_number }}' LIMIT 1;"
+      },
+      "id": "1003",
+      "name": "Supabase (Identificar Tenant)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        540,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=SUA_CHAVE_GEMINI_AQUI",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ [ { \"parts\": [ { \"text\": \"Você é um classificador de intenções. A mensagem do cliente é: '\" + $('IF (Somente Mensagens)').item.json.body.entry[0].changes[0].value.messages[0].text.body + \"'. Retorne APENAS um JSON válido no formato: { \\\"intencao\\\": \\\"agendar | cancelar | duvida\\\", \\\"servico\\\": \\\"nome\\\", \\\"data\\\": \\\"data_citada\\\" }\" } ] } ] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1004",
+      "name": "Gemini 1.5 Flash",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ JSON.parse($json.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '')).intencao }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "agendar",
+              "output": 0
+            },
+            {
+              "value2": "cancelar",
+              "output": 1
+            },
+            {
+              "value2": "duvida",
+              "output": 2
+            }
+          ]
+        }
+      },
+      "id": "1005",
+      "name": "Switch (Intenções)",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        980,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hookcloud.app/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SEU_TOKEN_HOOKCLOUD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "to",
+              "value": "={{ $('IF (Somente Mensagens)').item.json.body.entry[0].changes[0].value.contacts[0].wa_id }}"
+            },
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "text",
+              "value": "={ \"body\": \"(Modo Dev) Você pediu para agendar o serviço: {{ JSON.parse($('Gemini 1.5 Flash').item.json.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '')).servico }}. Vamos ver nossa agenda!\" }"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1006",
+      "name": "Resposta WhatsApp (Agendar)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1200,
+        180
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (HookCloud)": {
+      "main": [
+        [
+          {
+            "node": "IF (Somente Mensagens)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (Somente Mensagens)": {
+      "main": [
+        [
+          {
+            "node": "Supabase (Identificar Tenant)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase (Identificar Tenant)": {
+      "main": [
+        [
+          {
+            "node": "Gemini 1.5 Flash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 1.5 Flash": {
+      "main": [
+        [
+          {
+            "node": "Switch (Intenções)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch (Intenções)": {
+      "main": [
+        [
+          {
+            "node": "Resposta WhatsApp (Agendar)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f789d311-9128-44d5-8d5c-9c9d46fca475",
+  "meta": {
+    "instanceId": "dev"
+  },
+  "tags": []
+}

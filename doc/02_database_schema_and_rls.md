@@ -45,7 +45,7 @@ CREATE INDEX idx_instancias_num ON instancias_whatsapp(numero_telefone);
 Para garantir segurança "production-grade", o acesso via API para a aplicação Frontend (Next.js) é blindado por RLS.
 O Supabase injeta o `jwt()` que contém os metadados do usuário autenticado.
 
-Assumindo que no registro do usuário injetamos `user_metadata->>'empresa_id'`:
+Assumindo que no registro do usuário via Supabase Admin API injetamos `app_metadata->>'empresa_id'`:
 
 ```sql
 -- Ativando RLS nas tabelas
@@ -55,13 +55,13 @@ ALTER TABLE agendamentos ENABLE ROW LEVEL SECURITY;
 -- Política: Usuário só pode LER funcionários da própria empresa
 CREATE POLICY "Leitura restrita por Tenant" ON funcionarios
 FOR SELECT USING (
-    empresa_id = (auth.jwt() -> 'user_metadata' ->> 'empresa_id')::uuid
+    empresa_id = (auth.jwt() -> 'app_metadata' ->> 'empresa_id')::uuid
 );
 
 -- Política: Usuário só pode INSERIR agendamentos para sua empresa
 CREATE POLICY "Escrita restrita por Tenant" ON agendamentos
 FOR INSERT WITH CHECK (
-    empresa_id = (auth.jwt() -> 'user_metadata' ->> 'empresa_id')::uuid
+    empresa_id = (auth.jwt() -> 'app_metadata' ->> 'empresa_id')::uuid
 );
 ```
 
