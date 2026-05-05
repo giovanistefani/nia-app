@@ -7,7 +7,7 @@ O n8n atua como o "cérebro lógico" (Controller) da aplicação. A arquitetura 
 1.  **Webhook Trigger:** Escuta requisições POST do Hookcloud.
 2.  **IF Node (Sanitização):** Ignora mensagens de status (delivery/read) e foca apenas em mensagens do tipo `text` e `audio` (com nó de transcrição prévio, se necessário).
 3.  **Supabase Node (Roteamento):** 
-    *   Entrada: `{{ $json.body.data.remoteJid }}` (Telefone do bot).
+    *   Entrada: `{{ $json.body.entry[0].changes[0].value.metadata.display_phone_number }}` (Telefone da Instância Meta).
     *   Ação: SELECT `empresa_id` em `instancias_whatsapp`.
     *   Retorno: A identidade da empresa.
 
@@ -48,7 +48,7 @@ Se a intenção for `agendar`, o n8n entra em modo de processamento (Node de Có
     
     return { slots_formatados: formatarParaTexto(slots_livres.slice(0, 5)) };
     ```
-4.  **Envio ao Usuário:** Node do Hookcloud envia a resposta: *"Tenho estes horários amanhã: 1) 09:00 2) 10:30..."*. Sem chamar o Gemini novamente.
+4.  **Envio ao Usuário:** Node de HTTP Request (via Hookcloud API) envia a resposta: *"Tenho estes horários amanhã: 1) 09:00 2) 10:30..."*. Sem chamar o Gemini novamente.
 
 ## 4. Confirmação e Integração
 Quando o cliente responde "1", o fluxo de ingestão detecta a resposta referenciando o contexto anterior, e o n8n executa dois sub-nós em paralelo:

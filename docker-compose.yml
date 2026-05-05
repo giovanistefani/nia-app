@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - public_web
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+
+
+  admin_panel:
+    # A imagem sera construida baseada no Dockerfile do projeto Next.js
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nia_admin_panel
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    networks:
+      - public_web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 1024M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  public_web:
+    driver: bridge
